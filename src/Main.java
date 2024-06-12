@@ -1,58 +1,70 @@
 import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.scene.text.Font;
-import javafx.stage.Stage;
-import java.util.ArrayList;
-import javafx.scene.text.Text;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.scene.control.cell.PropertyValueFactory;
-import java.time.LocalDate;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Stage;
+import javafx.scene.text.Text;
+import javafx.scene.control.cell.PropertyValueFactory;
 
+import java.sql.Date;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.sql.*;
 
 public class Main extends Application {
-    private ArrayList<Pustakawan> listPustakawan = new ArrayList<>();
-    private ArrayList<Anggota> listAnggota = new ArrayList<>();
-    private ArrayList<Buku> listBuku = new ArrayList<>();
-    private ArrayList<Peminjaman> listPeminjaman = new ArrayList<>();
-
-
-    BorderPane border;
+    Connection conn = null;
+    PreparedStatement st = null;
+    ResultSet rs = null;
+    boolean flagEdit;
     TableView<Buku> tableView;
-    TableColumn<Buku, Integer> idBukuCol;
-    TableColumn<Buku, String> judulCol;
-    TableColumn<Buku, String> penerbitCol;
-    TableColumn<Buku, String> penulisCol;
-    TableColumn<Buku, Integer> tahunTerbitCol;
+    TableView<Pustakawan> tableViewPustakawan;
+    TableView<Anggota> tableViewAnggota;
+    TableColumn<Buku, Integer> idBuku;
+    TableColumn<Buku, String> judul;
+    TableColumn<Buku, String> penerbit;
+    TableColumn<Buku, String> penulis;
+    TableColumn<Buku, Integer> tahun_terbit;
     TextField tfIdBuku;
     TextField tfJudul;
     TextField tfPenerbit;
     TextField tfPenulis;
     TextField tfTahunTerbit;
+    TextField tfIdPustakawan;
+    TextField tfNama;
+    TextField tfEmail;
     Button bUpdate;
     Button bCancel;
     Button bAdd;
     Button bEdit;
     Button bDel;
+    Button bAdd1;
+    Button bEdit1;
+    Button bUpdate1;
+    Button bDel1;
+    Button bCancel1;
+    Button bAdd2,bEdit2,bDel2,bUpdate2,bCancel2;
+    TextField tfIdAnggota,tfNamaA,tfEmailA,tfTeleponA,tfAlamatA,tfTanggalDaftar;
+    TextField tfIdPeminjaman,tfTanggalPinjam,TfTanggalKembali;
+    BorderPane border;
 
     @Override
-    public void start(Stage stage) throws Exception {
+    public void start(Stage stage) {
         border = new BorderPane();
         HBox hbox = addHBox();
         border.setTop(hbox);
         border.setLeft(addVBox());
         border.setCenter(addVBoxHome());
-
         stage.setTitle("Sistem Perpustakaan");
-        Scene scene = new Scene(border, 800, 600);
+        Scene scene = new Scene(border);
         stage.setScene(scene);
         stage.show();
     }
@@ -62,11 +74,11 @@ public class Main extends Application {
         hbox.setPadding(new Insets(15, 12, 15, 12));
         hbox.setSpacing(10);
         hbox.setStyle("-fx-background-color: #336699;");
-        Text title = new Text("Sistem Perpustakaan");
-        title.setFont(Font.font("Verdana", 20));
-        title.setFill(javafx.scene.paint.Color.WHITE);
+        Text tjudul = new Text("Sistem Perpustakaan");
+        tjudul.setFont(Font.font("Verdana", 20));
+        tjudul.setFill(Color.WHITESMOKE);
         hbox.setAlignment(Pos.CENTER);
-        hbox.getChildren().add(title);
+        hbox.getChildren().add(tjudul);
         return hbox;
     }
 
@@ -77,95 +89,81 @@ public class Main extends Application {
         Text title = new Text("Perpustakaan");
         title.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         vbox.getChildren().add(title);
-        Hyperlink options[] = {
+        Hyperlink[] options = new Hyperlink[] {
                 new Hyperlink("Home"),
                 new Hyperlink("Buku"),
                 new Hyperlink("Pustakawan"),
                 new Hyperlink("Anggota"),
                 new Hyperlink("Peminjaman"),
                 new Hyperlink("Koleksi Buku"),
-                new Hyperlink("Selesai")
-        };
+                new Hyperlink("Selesai")};
         for (int i = 0; i < 7; i++) {
             VBox.setMargin(options[i], new Insets(0, 0, 0, 8));
             vbox.getChildren().add(options[i]);
         }
         options[0].setOnAction(e -> border.setCenter(addVBoxHome()));
-        options[1].setOnAction(e -> {
-            // Memperbarui TableView setiap kali menu buku dipilih
-            border.setCenter(addVBoxBuku());
-            // Menyematkan data buku ke TableView
-            tableView.getItems().setAll(listBuku);
-        });
-
+        options[1].setOnAction(e -> border.setCenter(addVBoxBuku()));
         options[2].setOnAction(e -> border.setCenter(addVBoxPustakawan()));
         options[3].setOnAction(e -> border.setCenter(addVBoxAnggota()));
-        options[4].setOnAction(e -> border.setCenter(addVBoxPeminjaman(listBuku, listAnggota)));
-        options[5].setOnAction(e -> border.setCenter(addVBoxKoleksiBuku()));
+        options[4].setOnAction(e -> border.setCenter(addVBoxPeminjaman()));
+        options[5].setOnAction(e ->border.setCenter(addVboxKoleksiBuku()));
         options[6].setOnAction(e -> System.exit(0));
         return vbox;
     }
 
     private VBox addVBoxHome() {
         VBox vb = new VBox();
-        vb.setAlignment(Pos.CENTER);
+        vb.setFillWidth(true);
         Text tjudul = new Text("Home");
         tjudul.setFont(Font.font("Arial", 18));
-        FileInputStream input= null;
-        try {
-            input = new FileInputStream("C:/Users/lenov/IdeaProjects/APP PERPUSTAKAAN/src/Image trying.png");
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-        Image image = new Image(input);
-        ImageView imageview=new ImageView(image);
-        vb.getChildren().add(imageview);
-        vb.getChildren().add(tjudul);
-        return vb;
-    }
-
-    private VBox addVBoxBuku() {
-        VBox vb = new VBox();
         vb.setAlignment(Pos.CENTER);
-        Text tjudul = new Text("Form Data Buku");
-        tjudul.setFont(Font.font("Arial", 18));
-        vb.getChildren().add(tjudul);
-        vb.getChildren().add(spTableBuku());
-        vb.getChildren().add(gpFormBuku());
+        try {
+            FileInputStream input = new FileInputStream("C:/Users/lenov/IdeaProjects/APP PERPUSTAKAAN/src/Image trying.png");
+            Image image = new Image(input);
+            ImageView imageview = new ImageView(image);
+            imageview.setFitHeight(500);
+            imageview.setPreserveRatio(true);
+            vb.getChildren().addAll(tjudul, imageview);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
         return vb;
     }
 
     private StackPane spTableBuku() {
         StackPane sp = new StackPane();
         tableView = new TableView<>();
-        idBukuCol = new TableColumn<>("Id Buku");
-        judulCol = new TableColumn<>("Judul");
-        penerbitCol = new TableColumn<>("Penerbit");
-        penulisCol = new TableColumn<>("Penulis");
-        tahunTerbitCol = new TableColumn<>("Tahun Terbit");
-        tableView.getColumns().addAll(idBukuCol, judulCol, penerbitCol, penulisCol, tahunTerbitCol);
-        // Set cell value factories for columns
-        idBukuCol.setCellValueFactory(new PropertyValueFactory<>("idBuku"));
-        judulCol.setCellValueFactory(new PropertyValueFactory<>("judul"));
-        penerbitCol.setCellValueFactory(new PropertyValueFactory<>("penerbit"));
-        penulisCol.setCellValueFactory(new PropertyValueFactory<>("penulis"));
-        tahunTerbitCol.setCellValueFactory(new PropertyValueFactory<>("tahunTerbit"));
-        // Add dummy data for demonstration
-        tableView.getItems().addAll(
-                new Buku(1, "Judul Buku 1", "Penerbit A", "Penulis X", 2000),
-                new Buku(2, "Judul Buku 2", "Penerbit B", "Penulis Y", 2005),
-                new Buku(3, "Judul Buku 3", "Penerbit C", "Penulis Z", 2010)
-        );
+        idBuku = new TableColumn<>("idBuku");
+        judul = new TableColumn<>("judul");
+        penerbit = new TableColumn<>("penerbit");
+        penulis = new TableColumn<>("penulis");
+        tahun_terbit = new TableColumn<>("tahunTerbit");
+        tableView.getColumns().addAll(idBuku, judul, penerbit, penulis, tahun_terbit);
+        idBuku.setCellValueFactory(new PropertyValueFactory<>("idBuku"));
+        judul.setCellValueFactory(new PropertyValueFactory<>("judul"));
+        penerbit.setCellValueFactory(new PropertyValueFactory<>("penerbit"));
+        penulis.setCellValueFactory(new PropertyValueFactory<>("penulis"));
+        tahun_terbit.setCellValueFactory(new PropertyValueFactory<>("tahunTerbit"));
+        idBuku.setPrefWidth(50);
+        judul.setPrefWidth(300);
+        penulis.setPrefWidth(200);
+        penerbit.setPrefWidth(200);
+        tahun_terbit.setPrefWidth(100);
+        tableView.setPrefWidth(850);
+        showListBuku();
         sp.getChildren().add(tableView);
         return sp;
     }
 
     private GridPane gpFormBuku() {
+        flagEdit = false;
         GridPane gp = new GridPane();
+        gp.setPrefHeight(500);
         gp.setAlignment(Pos.CENTER);
         gp.setVgap(10);
         gp.setHgap(10);
         gp.setPadding(new Insets(10, 10, 10, 10));
+        Label lbJudulForm = new Label("Form Data Buku");
         Label lbIdBuku = new Label("Id Buku");
         Label lbJudul = new Label("Judul");
         Label lbPenerbit = new Label("Penerbit");
@@ -180,332 +178,634 @@ public class Main extends Application {
         bCancel = new Button("Cancel");
         bAdd = new Button("Add");
         bEdit = new Button("Edit");
-        bDel = new Button("Delete");
-        // Add button actions
-        bAdd.setOnAction(e -> addBook());
-        bEdit.setOnAction(e -> editBook());
-        bDel.setOnAction(e -> deleteBook());
-        bUpdate.setOnAction(e -> updateBook());
-        bCancel.setOnAction(e -> clearFields());
-
-        // Add elements to grid pane
-        gp.addRow(0, lbIdBuku, tfIdBuku);
-        gp.addRow(1, lbJudul, tfJudul);
-        gp.addRow(2, lbPenerbit, tfPenerbit);
-        gp.addRow(3, lbPenulis, tfPenulis);
-        gp.addRow(4, lbTahunTerbit, tfTahunTerbit);
-        HBox buttonBox = new HBox(10, bAdd, bEdit, bDel, bUpdate, bCancel);
-        buttonBox.setAlignment(Pos.CENTER);
-        gp.addRow(5, buttonBox);
+        bDel = new Button("Del");
+        bAdd.setPrefWidth(100);
+        bEdit.setPrefWidth(100);
+        bDel.setPrefWidth(100);
+        bUpdate.setPrefWidth(100);
+        bCancel.setPrefWidth(100);
+        bUpdate.setDisable(true);
+        bCancel.setDisable(true);
+        bUpdate.setOnAction(e -> updateDataBuku());
+        bEdit.setOnAction(e -> editDataBuku());
+        bAdd.setOnAction(e -> addDataBuku());
+        bCancel.setOnAction(e -> cancelEditBuku());
+        bDel.setOnAction(e -> deleteDataBuku());
+        TilePane tp1 = new TilePane();
+        tp1.getChildren().addAll(bAdd, bEdit, bDel, bUpdate, bCancel);
+        gp.addRow(0, new Label(""), lbJudulForm);
+        gp.addRow(1, lbIdBuku, tfIdBuku);
+        gp.addRow(2, lbJudul, tfJudul);
+        gp.addRow(3, lbPenerbit, tfPenerbit);
+        gp.addRow(4, lbPenulis, tfPenulis);
+        gp.addRow(5, lbTahunTerbit, tfTahunTerbit);
+        gp.addRow(6, new Label(""), tp1);
+        teksAktif(false);
+        buttonAktif(false);
         return gp;
     }
 
-    private void addBook() {
-        int id = Integer.parseInt(tfIdBuku.getText());
-        String judul = tfJudul.getText();
-        String penerbit = tfPenerbit.getText();
-        String penulis = tfPenulis.getText();
-        int tahunTerbit = Integer.parseInt(tfTahunTerbit.getText());
-        Buku newBook = new Buku(id, judul, penerbit, penulis, tahunTerbit);
-        listBuku.add(newBook); // Adding to book list
-        tableView.getItems().add(newBook);
-        clearFields();
+    private VBox addVBoxBuku() {
+        VBox vb = new VBox();
+        Text tjudul = new Text("Form Data Buku");
+        tjudul.setFont(Font.font("Arial", 18));
+        vb.getChildren().add(tjudul);
+        vb.setAlignment(Pos.CENTER);
+        vb.getChildren().add(spTableBuku());
+        vb.getChildren().add(gpFormBuku());
+        return vb;
     }
 
+    public void buttonAktif(boolean nonAktif) {
+        bAdd.setDisable(nonAktif);
+        bEdit.setDisable(nonAktif);
+        bDel.setDisable(nonAktif);
+        bUpdate.setDisable(!nonAktif);
+        bCancel.setDisable(!nonAktif);
+    }
 
-    private void editBook() {
-        Buku selectedBook = tableView.getSelectionModel().getSelectedItem();
-        if (selectedBook != null) {
-            // Set text fields with selected book's data
-            tfIdBuku.setText(String.valueOf(selectedBook.getIdBuku()));
-            tfJudul.setText(selectedBook.getJudul());
-            tfPenerbit.setText(selectedBook.getPenerbit());
-            tfPenulis.setText(selectedBook.getPenulis());
-            tfTahunTerbit.setText(String.valueOf(selectedBook.getTahunTerbit()));
-            // Disable add button and enable update button while editing
-            bAdd.setDisable(true);
-            bUpdate.setDisable(false);
+    public void teksAktif(boolean aktif) {
+        tfIdBuku.setEditable(aktif);
+        tfJudul.setEditable(aktif);
+        tfPenerbit.setEditable(aktif);
+        tfPenulis.setEditable(aktif);
+        tfTahunTerbit.setEditable(aktif);
+    }
+
+    public void clearTeks() {
+        tfIdBuku.setText("");
+        tfJudul.setText("");
+        tfPenerbit.setText("");
+        tfPenulis.setText("");
+        tfTahunTerbit.setText("");
+    }
+
+    public ObservableList<Buku> getlistBuku() {
+        ObservableList<Buku> listBuku = FXCollections.observableArrayList();
+        String sql = "SELECT * FROM buku";
+        conn = DBConnection.getConn();
+        try {
+            st = conn.prepareStatement(sql);
+            rs = st.executeQuery();
+            while (rs.next()) {
+                Buku b = new Buku(rs.getInt("Id_Buku"), rs.getString("judul"),
+                        rs.getString("penerbit"), rs.getString("penulis"),
+                        rs.getInt("tahun_terbit"));
+                listBuku.add(b);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return listBuku;
+    }
+
+    public void showListBuku() {
+        ObservableList<Buku> listBuku = getlistBuku();
+        tableView.setItems(listBuku);
+    }
+
+    private void updateDataBuku() {
+        int idBuku, tahunTerbit;
+        String judul, penulis, penerbit;
+        idBuku = Integer.parseInt(tfIdBuku.getText());
+        judul = tfJudul.getText();
+        penulis = tfPenulis.getText();
+        penerbit = tfPenerbit.getText();
+        tahunTerbit = Integer.parseInt(tfTahunTerbit.getText());
+        Buku b = new Buku(idBuku, judul, penerbit, penulis, tahunTerbit);
+        if (!flagEdit) {
+            tableView.getItems().add(b);
+            String sql = "INSERT INTO buku(Id_Buku, judul, penerbit, penulis, tahun_terbit) VALUES (?, ?, ?, ?, ?)";
+            conn = DBConnection.getConn();
+            try {
+                st = conn.prepareStatement(sql);
+                st.setInt(1, idBuku);
+                st.setString(2, judul);
+                st.setString(3, penerbit);
+                st.setString(4, penulis);
+                st.setInt(5, tahunTerbit);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         } else {
-            showAlert("Edit", "Pilih buku yang akan diedit.");
+            int idx = tableView.getSelectionModel().getSelectedIndex();
+            String sql = "UPDATE buku SET judul=?, penerbit=?, penulis=?, tahun_terbit=? WHERE Id_Buku=?";
+            conn = DBConnection.getConn();
+            try {
+                st = conn.prepareStatement(sql);
+                st.setString(1, judul);
+                st.setString(2, penerbit);
+                st.setString(3, penulis);
+                st.setInt(4, tahunTerbit);
+                st.setInt(5, idBuku);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            tableView.getItems().set(idx, b);
+        }
+        showListBuku();
+        teksAktif(false);
+        buttonAktif(false);
+        clearTeks();
+        flagEdit = true;
+    }
+
+    private void editDataBuku() {
+        buttonAktif(true);
+        teksAktif(true);
+        flagEdit = true;
+        int idx = tableView.getSelectionModel().getSelectedIndex();
+        if (idx >= 0) {
+            Buku selectedBuku = tableView.getItems().get(idx);
+            tfIdBuku.setText(String.valueOf(selectedBuku.getIdBuku()));
+            tfJudul.setText(selectedBuku.getJudul());
+            tfPenerbit.setText(selectedBuku.getPenerbit());
+            tfPenulis.setText(selectedBuku.getPenulis());
+            tfTahunTerbit.setText(String.valueOf(selectedBuku.getTahunTerbit()));
         }
     }
 
-
-    private void updateBook() {
-        Buku selectedBook = tableView.getSelectionModel().getSelectedItem();
-        if (selectedBook != null) {
-            // Hapus buku yang lama dari list
-            listBuku.remove(selectedBook);
-            // Perbarui data buku dengan data yang baru dari input
-            selectedBook.setIdBuku(Integer.parseInt(tfIdBuku.getText()));
-            selectedBook.setJudul(tfJudul.getText());
-            selectedBook.setPenerbit(tfPenerbit.getText());
-            selectedBook.setPenulis(tfPenulis.getText());
-            selectedBook.setTahunTerbit(Integer.parseInt(tfTahunTerbit.getText()));
-            // Tambahkan buku yang diperbarui ke list
-            listBuku.add(selectedBook);
-            // Perbarui TableView
-            tableView.getItems().setAll(listBuku);
-            // Bersihkan kolom input
-            clearFields();
-            // Aktifkan kembali tombol Tambah dan nonaktifkan tombol Perbarui
-            bAdd.setDisable(false);
-            bUpdate.setDisable(true);
-        } else {
-            showAlert("Update", "Pilih buku yang akan diupdate.");
-        }
+    private void addDataBuku() {
+        flagEdit = false;
+        clearTeks();
+        teksAktif(true);
+        buttonAktif(true);
     }
 
-
-    private void deleteBook() {
-        Buku selectedBook = tableView.getSelectionModel().getSelectedItem();
-        if (selectedBook != null) {
-            listBuku.remove(selectedBook);
-            tableView.getItems().remove(selectedBook);
-        }
+    private void cancelEditBuku() {
+        teksAktif(false);
+        buttonAktif(false);
     }
 
-
-    private void clearFields() {
-        tfIdBuku.clear();
-        tfJudul.clear();
-        tfPenerbit.clear();
-        tfPenulis.clear();
-        tfTahunTerbit.clear();
-        tableView.getSelectionModel().clearSelection();
+    private void deleteDataBuku() {
+        int idx = tableView.getSelectionModel().getSelectedIndex();
+        if (idx >= 0) {
+            Buku selectedBuku = tableView.getItems().get(idx);
+            int idbuku = selectedBuku.getIdBuku();
+            String sql = "DELETE FROM buku WHERE id_Buku = ?";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setInt(1, idbuku);
+                st.executeUpdate();
+                tableView.getItems().remove(idx);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     private VBox addVBoxPustakawan() {
-        VBox vb = new VBox();
-        vb.setAlignment(Pos.CENTER);
-        Text tjudul = new Text("Form Data Pustakawan");
-        tjudul.setFont(Font.font("Arial", 18));
-        vb.getChildren().add(tjudul);
+        VBox vb1 = new VBox();
+        Text tjudul1 = new Text("Form Data Pustakawan");
+        tjudul1.setFont(Font.font("Arial", 18));
+        vb1.getChildren().add(tjudul1);
+        vb1.setAlignment(Pos.CENTER);
+        vb1.getChildren().add(spTablePustakawan());
+        vb1.getChildren().add(gpFormPustakawan());
+        return vb1;
+    }
 
-        // Form elements
-        Label lblNama = new Label("Nama:");
-        TextField tfNama = new TextField();
+    private StackPane spTablePustakawan() {
+        StackPane sp2 = new StackPane();
+        tableViewPustakawan = new TableView<>();
+        TableColumn<Pustakawan, Integer> idPustakawan = new TableColumn<>("Id Pustakawan");
+        TableColumn<Pustakawan, String> nama = new TableColumn<>("Nama");
+        TableColumn<Pustakawan, String> email = new TableColumn<>("Email");
+        tableViewPustakawan.getColumns().addAll(idPustakawan, nama, email);
+        idPustakawan.setCellValueFactory(new PropertyValueFactory<>("idPustakawan"));
+        nama.setCellValueFactory(new PropertyValueFactory<>("nama"));
+        email.setCellValueFactory(new PropertyValueFactory<>("email"));
+        idPustakawan.setPrefWidth(150);
+        nama.setPrefWidth(200);
+        email.setPrefWidth(200);
+        tableViewPustakawan.setPrefWidth(850);
+        showListPustakawan();
+        sp2.getChildren().add(tableViewPustakawan);
+        return sp2;
+    }
 
-        Label lblAlamat = new Label("Alamat:");
-        TextField tfAlamat = new TextField();
+    private GridPane gpFormPustakawan() {
+        GridPane gp1 = new GridPane();
+        gp1.setPrefHeight(500);
+        gp1.setAlignment(Pos.CENTER);
+        gp1.setVgap(10);
+        gp1.setHgap(10);
+        gp1.setPadding(new Insets(10, 10, 10, 10));
+        Label lbJudulForm1 = new Label("Form Data Pustakawan");
+        Label lbIdPustakawan = new Label("Id Pustakawan");
+        Label lbNama = new Label("Nama");
+        Label lbEmail = new Label("Email");
+        tfIdPustakawan = new TextField();
+        tfNama = new TextField();
+        tfEmail = new TextField();
+        bUpdate1 = new Button("Update");
+        bCancel1 = new Button("Cancel");
+        bAdd1 = new Button("Add");
+        bEdit1 = new Button("Edit");
+        bDel1 = new Button("Del");
+        bAdd1.setPrefWidth(100);
+        bEdit1.setPrefWidth(100);
+        bDel1.setPrefWidth(100);
+        bUpdate1.setPrefWidth(100);
+        bCancel1.setPrefWidth(100);
+        bUpdate1.setDisable(true);
+        bCancel1.setDisable(true);
+        bUpdate1.setOnAction(e -> updateDataPustakawan());
+        bEdit1.setOnAction(e -> editDataPustakawan());
+        bAdd1.setOnAction(e -> addDataPustakawan());
+        bCancel1.setOnAction(e -> cancelEditPustakawan());
+        bDel1.setOnAction(e -> deleteDataPustakawan());
+        TilePane tp2 = new TilePane();
+        tp2.getChildren().addAll(bAdd1, bEdit1, bDel1, bUpdate1, bCancel1);
+        gp1.addRow(0, new Label(""), lbJudulForm1);
+        gp1.addRow(1, lbIdPustakawan, tfIdPustakawan);
+        gp1.addRow(2, lbNama, tfNama);
+        gp1.addRow(3, lbEmail, tfEmail);
+        gp1.addRow(4, new Label(""), tp2);
+        teksAktif1(false);
+        buttonAktif1(false);
+        return gp1;
+    }
 
-        Label lblTelepon = new Label("Nomor Telepon:");
-        TextField tfTelepon = new TextField();
-
-        // Button
-        Button btnSave = new Button("Simpan");
-        btnSave.setOnAction(e -> {
-            String nama = tfNama.getText();
-            String alamat = tfAlamat.getText();
-            String telepon = tfTelepon.getText();
-            Pustakawan pustakawan = new Pustakawan(nama, alamat, telepon);
-            listPustakawan.add(pustakawan);
-            System.out.println("Data pustakawan berhasil disimpan: " + pustakawan);
-            // Clear text fields after saving
-            tfNama.clear();
-            tfAlamat.clear();
-            tfTelepon.clear();
-        });
-
-        // Button for showing saved pustakawans
-        Button btnShow = new Button("Tampilkan Pustakawan");
-        btnShow.setOnAction(e -> {
-            System.out.println("Daftar Pustakawan:");
-            for (Pustakawan p : listPustakawan) {
-                System.out.println(p);
+    private void updateDataPustakawan() {
+        int idPustakawan = Integer.parseInt(tfIdPustakawan.getText());
+        String nama = tfNama.getText();
+        String email = tfEmail.getText();
+        Pustakawan pustakawan = new Pustakawan(idPustakawan, nama, email);
+        if (!flagEdit) {
+            tableViewPustakawan.getItems().add(pustakawan);
+            String sql = "INSERT INTO pustakawan(id_pustakawan, nama, email) VALUES (?, ?, ?)";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setInt(1, idPustakawan);
+                st.setString(2, nama);
+                st.setString(3, email);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
             }
-        });
-
-        // Add elements to VBox
-        vb.getChildren().addAll(
-                lblNama, tfNama,
-                lblAlamat, tfAlamat,
-                lblTelepon, tfTelepon,
-                btnSave,
-                btnShow
-        );
-
-        // Set spacing and padding
-        vb.setSpacing(10);
-        vb.setPadding(new Insets(10));
-
-        return vb;
-    }
-
-
-    private VBox addVBoxAnggota() {
-        VBox vb = new VBox();
-        vb.setAlignment(Pos.CENTER);
-        Text tjudul = new Text("Form Data Anggota");
-                tjudul.setFont(Font.font("Arial", 18));
-        vb.getChildren().add(tjudul);
-
-        // Form elements
-        Label lblNama = new Label("Nama:");
-        TextField tfNama = new TextField();
-
-        Label lblAlamat = new Label("Alamat:");
-        TextField tfAlamat = new TextField();
-
-        Label lblTelepon = new Label("Nomor Telepon:");
-        TextField tfTelepon = new TextField();
-
-        // Button
-        Button btnSave = new Button("Simpan");
-        btnSave.setOnAction(e -> {
-            String nama = tfNama.getText();
-            String alamat = tfAlamat.getText();
-            String telepon = tfTelepon.getText();
-            Anggota anggota = new Anggota(nama, alamat, telepon);
-            listAnggota.add(anggota);
-            System.out.println("Data anggota berhasil disimpan: " + anggota);
-            // Clear text fields after saving
-            tfNama.clear();
-            tfAlamat.clear();
-            tfTelepon.clear();
-        });
-
-        // Button for showing saved anggota
-        Button btnShow = new Button("Tampilkan Anggota");
-        btnShow.setOnAction(e -> {
-            System.out.println("Daftar Anggota:");
-            for (Anggota a : listAnggota) {
-                System.out.println(a);
-            }
-        });
-
-        // Add elements to VBox
-        vb.getChildren().addAll(
-                lblNama, tfNama,
-                lblAlamat, tfAlamat,
-                lblTelepon, tfTelepon,
-                btnSave,
-                btnShow
-        );
-
-        // Set spacing and padding
-        vb.setSpacing(10);
-        vb.setPadding(new Insets(10));
-
-        return vb;
-    }
-
-
-    private VBox addVBoxPeminjaman(ArrayList<Buku> listBuku, ArrayList<Anggota> listAnggota) {
-        VBox vb = new VBox();
-        vb.setAlignment(Pos.CENTER);
-        Text tjudul = new Text("Form Data Peminjaman");
-        tjudul.setFont(Font.font("Arial", 18));
-        vb.getChildren().add(tjudul);
-
-        // Form elements
-        Label lblAnggota = new Label("Nama Anggota:");
-        ComboBox<Anggota> cbAnggota = new ComboBox<>();
-        cbAnggota.getItems().addAll(listAnggota);
-
-        Label lblBuku = new Label("Judul Buku:");
-        ComboBox<Buku> cbBuku = new ComboBox<>();
-        cbBuku.getItems().addAll(listBuku);
-
-        DatePicker dpTanggalPinjam = new DatePicker();
-        dpTanggalPinjam.setPromptText("Tanggal Pinjam");
-
-        DatePicker dpTanggalKembali = new DatePicker();
-        dpTanggalKembali.setPromptText("Tanggal Kembali");
-
-        // Button
-        Button btnPinjam = new Button("Pinjam");
-        btnPinjam.setOnAction(e -> {
-            Anggota anggota = cbAnggota.getValue();
-            Buku buku = cbBuku.getValue();
-            LocalDate tanggalPinjam = dpTanggalPinjam.getValue();
-            LocalDate tanggalKembali = dpTanggalKembali.getValue();
-            if (anggota != null && buku != null && tanggalPinjam != null && tanggalKembali != null) {
-                System.out.println("Peminjaman: Anggota: " + anggota + ", Buku: " + buku +
-                        ", Tanggal Pinjam: " + tanggalPinjam + ", Tanggal Kembali: " + tanggalKembali);
-                // Logic to handle peminjaman
-            } else {
-                showAlert("Peminjaman", "Harap lengkapi semua field.");
-            }
-        });
-
-        // Add elements to VBox
-        vb.getChildren().addAll(
-                lblAnggota, cbAnggota,
-                lblBuku, cbBuku,
-                new HBox(10, new Label("Tanggal Pinjam:"), dpTanggalPinjam),
-                new HBox(10, new Label("Tanggal Kembali:"), dpTanggalKembali),
-                btnPinjam
-        );
-
-        // Set spacing and padding
-        vb.setSpacing(10);
-        vb.setPadding(new Insets(10));
-
-        return vb;
-    }
-
-
-
-    private VBox addVBoxKoleksiBuku() {
-        VBox vb = new VBox();
-        vb.setAlignment(Pos.CENTER);
-        Text tjudul = new Text("Koleksi Buku");
-        tjudul.setFont(Font.font("Arial", 18));
-        vb.getChildren().add(tjudul);
-
-        // List view for displaying book collection
-        ListView<String> listView = new ListView<>();
-        listView.setPrefSize(400, 300);
-
-        // Button to refresh book collection
-        Button btnRefresh = new Button("Refresh");
-        btnRefresh.setOnAction(e -> {
-            // Clear previous items
-            listView.getItems().clear();
-            // Add all books to the list view
-            for (Buku buku : listBuku) {
-                listView.getItems().add(buku.toString());
-            }
-        });
-
-        // Add elements to VBox
-        vb.getChildren().addAll(listView, btnRefresh);
-
-        // Set spacing and padding
-        vb.setSpacing(10);
-        vb.setPadding(new Insets(10));
-
-        return vb;
-    }
-
-
-    private void showAlert(String title, String content) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
-    }
-    private void pinjamBuku(Anggota anggota, Buku buku) {
-        // Memeriksa apakah buku tersedia sebelum dipinjam
-        if (buku.isTersedia()) {
-            // Jika tersedia, tandai status buku sebagai tidak tersedia
-            buku.setTersedia(false);
-            // Buat objek peminjaman baru dan tambahkan ke daftar peminjaman
-            Peminjaman peminjaman = new Peminjaman(anggota, buku, LocalDate.now(), null);
-            listPeminjaman.add(peminjaman);
-            System.out.println("Buku berhasil dipinjam oleh " + anggota.getNama());
         } else {
-            System.out.println("Buku sedang tidak tersedia");
+            int idx = tableViewPustakawan.getSelectionModel().getSelectedIndex();
+            String sql = "UPDATE pustakawan SET nama=?, email=? WHERE id_pustakawan=?";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setString(1, nama);
+                st.setString(2, email);
+                st.setInt(3, idPustakawan);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            tableViewPustakawan.getItems().set(idx, pustakawan);
+        }
+        showListPustakawan();
+        teksAktif1(false);
+        buttonAktif1(false);
+        clearTeks1();
+        flagEdit = true;
+    }
+
+    private void editDataPustakawan() {
+        buttonAktif1(true);
+        teksAktif1(true);
+        flagEdit = true;
+        int idx = tableViewPustakawan.getSelectionModel().getSelectedIndex();
+        if (idx >= 0) {
+            Pustakawan selectedPustakawan = tableViewPustakawan.getItems().get(idx);
+            tfIdPustakawan.setText(String.valueOf(selectedPustakawan.getIdPustakawan()));
+            tfNama.setText(selectedPustakawan.getNama());
+            tfEmail.setText(selectedPustakawan.getEmail());
         }
     }
 
+    private void addDataPustakawan() {
+        flagEdit = false;
+        clearTeks1();
+        teksAktif1(true);
+        buttonAktif1(true);
+    }
+
+    private void cancelEditPustakawan() {
+        teksAktif1(false);
+        buttonAktif1(false);
+    }
+
+    private void deleteDataPustakawan() {
+        int idx = tableViewPustakawan.getSelectionModel().getSelectedIndex();
+        if (idx >= 0) {
+            Pustakawan selectedPustakawan = tableViewPustakawan.getItems().get(idx);
+            int idPustakawan = selectedPustakawan.getIdPustakawan();
+            String sql = "DELETE FROM pustakawan WHERE id_pustakawan = ?";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setInt(1, idPustakawan);
+                st.executeUpdate();
+                tableViewPustakawan.getItems().remove(idx);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    public ObservableList<Pustakawan> getListPustakawan() {
+        ObservableList<Pustakawan> listPustakawan = FXCollections.observableArrayList();
+        String sql = "SELECT * FROM pustakawan";
+        try (Connection conn = DBConnection.getConn();
+             PreparedStatement st = conn.prepareStatement(sql);
+             ResultSet rs = st.executeQuery()) {
+            while (rs.next()) {
+                Pustakawan p = new Pustakawan(rs.getInt("id_pustakawan"), rs.getString("nama"),
+                        rs.getString("email"));
+                listPustakawan.add(p);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return listPustakawan;
+    }
+
+    public void showListPustakawan() {
+        ObservableList<Pustakawan> listPustakawan = getListPustakawan();
+        tableViewPustakawan.setItems(listPustakawan);
+    }
+
+    public void buttonAktif1(boolean nonAktif) {
+        bAdd1.setDisable(nonAktif);
+        bEdit1.setDisable(nonAktif);
+        bDel1.setDisable(nonAktif);
+        bUpdate1.setDisable(!nonAktif);
+        bCancel1.setDisable(!nonAktif);
+    }
+
+    public void teksAktif1(boolean aktif) {
+        tfIdPustakawan.setEditable(aktif);
+        tfNama.setEditable(aktif);
+        tfEmail.setEditable(aktif);
+    }
+
+    public void clearTeks1() {
+        tfIdPustakawan.setText("");
+        tfNama.setText("");
+        tfEmail.setText("");
+    }
+    private VBox addVBoxAnggota() {
+        VBox vb2 = new VBox();
+        Text tjudul2 = new Text("Form Data Anggota");
+        tjudul2.setFont(Font.font("Arial", 18));
+        vb2.getChildren().add(tjudul2);
+        vb2.setAlignment(Pos.CENTER);
+        vb2.getChildren().add(spTableAnggota());
+        vb2.getChildren().add(gpFormAnggota());
+        return vb2;
+    }
+    private StackPane spTableAnggota() {
+        StackPane sp3 = new StackPane();
+        tableViewAnggota = new TableView<>();
+        TableColumn<Anggota, Integer> idAnggota = new TableColumn<>("Id Anggota");
+        TableColumn<Anggota, String> namaA = new TableColumn<>("Nama");
+        TableColumn<Anggota, String> alamatA = new TableColumn<>("Alamat");
+        TableColumn<Anggota, String> teleponA = new TableColumn<>("Telepon");
+        TableColumn<Anggota, String> emailA = new TableColumn<>("Email");
+        TableColumn<Anggota, String> tanggalDaftar = new TableColumn<>("TanggalDaftar");
+        tableViewAnggota.getColumns().addAll(idAnggota, namaA,alamatA,teleponA,emailA,tanggalDaftar);
+        idAnggota.setCellValueFactory(new PropertyValueFactory<>("idAnggota"));
+        namaA.setCellValueFactory(new PropertyValueFactory<>("nama"));
+        alamatA.setCellValueFactory(new PropertyValueFactory<>("alamat"));
+        teleponA.setCellValueFactory(new PropertyValueFactory<>("telepon"));
+        emailA.setCellValueFactory(new PropertyValueFactory<>("email"));
+        tanggalDaftar.setCellValueFactory(new PropertyValueFactory<>("TanggalDaftar"));
+        idAnggota.setPrefWidth(150);
+        namaA.setPrefWidth(200);
+        alamatA.setPrefWidth(200);
+        teleponA.setPrefWidth(200);
+        emailA.setPrefWidth(200);
+        tanggalDaftar.setPrefWidth(200);
+        tableViewAnggota.setPrefWidth(850);
+        showListAnggota();
+        sp3.getChildren().add(tableViewAnggota);
+        return sp3;
+    }
+    private GridPane gpFormAnggota() {
+        GridPane gp2 = new GridPane();
+        gp2.setPrefHeight(500);
+        gp2.setAlignment(Pos.CENTER);
+        gp2.setVgap(10);
+        gp2.setHgap(10);
+        gp2.setPadding(new Insets(10, 10, 10, 10));
+        Label lbJudulForm2= new Label("Form Data Anggota");
+        Label lbIdAnggota = new Label("Id Anggota");
+        Label lbNamaA = new Label("Nama");
+        Label lbAlamatA = new Label("Alamat");
+        Label lbTelepon = new Label("Telepon");
+        Label lbEmailA = new Label("Email");
+        Label lbTanggalDaftar = new Label("Tanggal Daftar");
+        tfIdAnggota = new TextField();
+        tfNamaA = new TextField();
+        tfAlamatA = new TextField();
+        tfTeleponA = new TextField();
+        tfEmailA = new TextField();
+        tfTanggalDaftar = new TextField();
+        bUpdate2 = new Button("Update");
+        bCancel2 = new Button("Cancel");
+        bAdd2 = new Button("Add");
+        bEdit2 = new Button("Edit");
+        bDel2 = new Button("Del");
+        bAdd2.setPrefWidth(100);
+        bEdit2.setPrefWidth(100);
+        bDel2.setPrefWidth(100);
+        bUpdate2.setPrefWidth(100);
+        bCancel2.setPrefWidth(100);
+        bUpdate2.setDisable(true);
+        bCancel2.setDisable(true);
+        bUpdate2.setOnAction(e -> updateDataAnggota());
+        bEdit2.setOnAction(e -> editDataAnggota());
+        bAdd2.setOnAction(e -> addDataAnggota());
+        bCancel2.setOnAction(e -> cancelEditAnggota());
+        bDel2.setOnAction(e -> deleteDataAnggota());
+        TilePane tp2 = new TilePane();
+        tp2.getChildren().addAll(bAdd2, bEdit2, bDel2, bUpdate2, bCancel2);
+        gp2.addRow(0, new Label(""), lbJudulForm2);
+        gp2.addRow(1, lbIdAnggota, tfIdAnggota);
+        gp2.addRow(2, lbNamaA, tfNamaA);
+        gp2.addRow(3, lbAlamatA, tfAlamatA);
+        gp2.addRow(4, lbTelepon, tfTeleponA);
+        gp2.addRow(5, lbEmailA, tfEmailA);
+        gp2.addRow(6, lbTanggalDaftar, tfTanggalDaftar);
+        gp2.addRow(7, new Label(""), tp2);
+        teksAktif1(false);
+        buttonAktif1(false);
+        return gp2;
+    }
+    private void updateDataAnggota() {
+        int idAnggota = Integer.parseInt(tfIdAnggota.getText());
+        String namaA = tfNamaA.getText();
+        String alamatA = tfAlamatA.getText();
+        String teleponA = tfTeleponA.getText();
+        String emailA = tfEmailA.getText();
+        String tanggalDaftar = tfTanggalDaftar.getText();
+        Anggota anggota = new Anggota(idAnggota, namaA,alamatA,teleponA,emailA,tanggalDaftar);
+        if (!flagEdit) {
+            tableViewAnggota.getItems().add(anggota);
+            String sql = "INSERT INTO anggota(id_anggota, nama, alamat, telepon, email, TanggalDaftar) VALUES (?, ?, ?, ?, ?, ?)";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setInt(1, idAnggota);
+                st.setString(2, namaA);
+                st.setString(3, alamatA);
+                st.setString(4, teleponA);
+                st.setString(5, emailA);
+                st.setString(6, tanggalDaftar);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        } else {
+            int idx = tableViewAnggota.getSelectionModel().getSelectedIndex();
+            String sql = "UPDATE anggota SET nama=?, alamat=?, telepon=?, email=?, TanggalDaftar=? WHERE id_anggota=?";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setString(1, namaA);
+                st.setString(2, alamatA);
+                st.setString(3, teleponA);
+                st.setString(4, emailA);
+                st.setString(5, tanggalDaftar);
+                st.setInt(6, idAnggota);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            tableViewAnggota.getItems().set(idx, anggota);
+        }
+        showListAnggota();
+        teksAktif2(false);
+        buttonAktif2(false);
+        clearTeks2();
+        flagEdit = true;
+    }
+
+    private void editDataAnggota() {
+        buttonAktif2(true);
+        teksAktif2(true);
+        flagEdit = true;
+        int idx = tableViewAnggota.getSelectionModel().getSelectedIndex();
+        if (idx >= 0) {
+            Anggota selectedAnggota = tableViewAnggota.getItems().get(idx);
+            tfIdAnggota.setText(String.valueOf(selectedAnggota.getIdAnggota()));
+            tfNamaA.setText(selectedAnggota.getNama());
+            tfAlamatA.setText(selectedAnggota.getAlamat());
+            tfTeleponA.setText(selectedAnggota.getTelepon());
+            tfEmailA.setText(selectedAnggota.getEmail());
+            tfTanggalDaftar.setText(selectedAnggota.getTanggalDaftar());
+        }
+    }
+    private void addDataAnggota() {
+        flagEdit = false;
+        clearTeks2();
+        teksAktif2(true);
+        buttonAktif2(true);
+    }
+    private void cancelEditAnggota() {
+        teksAktif2(false);
+        buttonAktif2(false);
+    }
+
+    private void deleteDataAnggota() {
+        int idx = tableViewAnggota.getSelectionModel().getSelectedIndex();
+        if (idx >= 0) {
+            Anggota selectedAnggota = tableViewAnggota.getItems().get(idx);
+            int idAnggota = selectedAnggota.getIdAnggota();
+            String sql = "DELETE FROM anggota WHERE id_anggota = ?";
+            try (Connection conn = DBConnection.getConn();
+                 PreparedStatement st = conn.prepareStatement(sql)) {
+                st.setInt(1, idAnggota);
+                st.executeUpdate();
+                tableViewAnggota.getItems().remove(idx);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+    public ObservableList<Anggota> getListAnggota() {
+        ObservableList<Anggota> listAnggota = FXCollections.observableArrayList();
+        String sql = "SELECT * FROM anggota";
+        try (Connection conn = DBConnection.getConn();
+             PreparedStatement st = conn.prepareStatement(sql);
+             ResultSet rs = st.executeQuery()) {
+            while (rs.next()) {
+                Anggota a = new Anggota(rs.getInt("id_anggota"), rs.getString("nama"),rs.getString("alamat"),
+                        rs.getString("telepon"), rs.getString("email"),rs.getString("TanggalDaftar"));
+                listAnggota.add(a);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return listAnggota;
+    }
+    public void showListAnggota() {
+        ObservableList<Anggota> listAnggota = getListAnggota();
+        tableViewAnggota.setItems(listAnggota);
+    }
+    public void buttonAktif2(boolean nonAktif) {
+        bAdd2.setDisable(nonAktif);
+        bEdit2.setDisable(nonAktif);
+        bDel2.setDisable(nonAktif);
+        bUpdate2.setDisable(!nonAktif);
+        bCancel2.setDisable(!nonAktif);
+    }
+    public void teksAktif2(boolean aktif) {
+        tfIdAnggota.setEditable(aktif);
+        tfNamaA.setEditable(aktif);
+        tfAlamatA.setEditable(aktif);
+        tfTeleponA.setEditable(aktif);
+        tfEmailA.setEditable(aktif);
+        tfTanggalDaftar.setEditable(aktif);
+    }
+
+    public void clearTeks2() {
+        tfIdAnggota.setText("");
+        tfNamaA.setText("");
+        tfAlamatA.setText("");
+        tfTeleponA.setText("");
+        tfEmailA.setText("");
+        tfTanggalDaftar.setText("");
+    }
+    private VBox addVboxKoleksiBuku() {
+        VBox vb3 = new VBox();
+        Text tjudul3 = new Text("Koleksi Buku");
+        tjudul3.setFont(Font.font("Arial", 18));
+        vb3.getChildren().add(tjudul3);
+        vb3.setAlignment(Pos.CENTER);
+        vb3.getChildren().add(spTableKoleksiBuku());
+        return vb3;
+    }
+
+    private StackPane spTableKoleksiBuku() {
+        StackPane sp = new StackPane();
+        TableView<Buku> tableViewKoleksiBuku = new TableView<>();
+        TableColumn<Buku, Integer> idBuku = new TableColumn<>("ID Buku");
+        TableColumn<Buku, String> judul = new TableColumn<>("Judul");
+        TableColumn<Buku, String> penerbit = new TableColumn<>("Penerbit");
+        TableColumn<Buku, String> penulis = new TableColumn<>("Penulis");
+        TableColumn<Buku, Integer> tahunTerbit = new TableColumn<>("Tahun Terbit");
+        tableViewKoleksiBuku.getColumns().addAll(idBuku, judul, penerbit, penulis, tahunTerbit);
+        idBuku.setCellValueFactory(new PropertyValueFactory<>("idBuku"));
+        judul.setCellValueFactory(new PropertyValueFactory<>("judul"));
+        penerbit.setCellValueFactory(new PropertyValueFactory<>("penerbit"));
+        penulis.setCellValueFactory(new PropertyValueFactory<>("penulis"));
+        tahunTerbit.setCellValueFactory(new PropertyValueFactory<>("tahunTerbit"));
+        tableViewKoleksiBuku.setPrefWidth(850);
+        showListBuku(); // Menampilkan data buku
+        tableViewKoleksiBuku.setItems(tableView.getItems()); // Menggunakan data yang sama dari table Buku
+        sp.getChildren().add(tableViewKoleksiBuku);
+        return sp;
+    }
 
     public static void main(String[] args) {
         launch(args);
     }
-
 }
+
 
 

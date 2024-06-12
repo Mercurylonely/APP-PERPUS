@@ -1,15 +1,22 @@
 public class Pustakawan {
+    private int idPustakawan;
     private String nama;
-    private String alamat;
-    private String telepon;
+    private String email;
 
-    public Pustakawan(String nama, String alamat, String telepon) {
+    public Pustakawan(int idPustakawan, String nama, String email) {
+        this.idPustakawan = idPustakawan;
         this.nama = nama;
-        this.alamat = alamat;
-        this.telepon = telepon;
+        this.email = email;
     }
 
-    // Getter and setter methods
+    public int getIdPustakawan() {
+        return idPustakawan;
+    }
+
+    public void setIdPustakawan(int idPustakawan) {
+        this.idPustakawan = idPustakawan;
+    }
+
     public String getNama() {
         return nama;
     }
@@ -18,24 +25,11 @@ public class Pustakawan {
         this.nama = nama;
     }
 
-    public String getAlamat() {
-        return alamat;
+    public String getEmail() {
+        return email;
     }
 
-    public void setAlamat(String alamat) {
-        this.alamat = alamat;
-    }
-
-    public String getTelepon() {
-        return telepon;
-    }
-
-    public void setTelepon(String telepon) {
-        this.telepon = telepon;
-    }
-
-    @Override
-    public String toString() {
-        return "Nama: " + nama + ", Alamat: " + alamat + ", Telepon: " + telepon;
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

@@ -1,25 +1,26 @@
 public class Buku {
-    private int idBuku;
+    private int id_Buku;
     private String judul;
     private String penerbit;
     private String penulis;
-    private int tahunTerbit;
-    private boolean tersedia = true;
+    private int tahun_terbit;
 
-    public Buku(int idBuku, String judul, String penerbit, String penulis, int tahunTerbit) {
-        this.idBuku = idBuku;
+    // Konstruktor
+    public Buku(int id_Buku, String judul, String penerbit, String penulis, int tahun_terbit) {
+        this.id_Buku = id_Buku;
         this.judul = judul;
         this.penerbit = penerbit;
         this.penulis = penulis;
-        this.tahunTerbit = tahunTerbit;// Default, saat buku dibuat, tersedia
+        this.tahun_terbit = tahun_terbit;
     }
 
+    // Getter dan Setter
     public int getIdBuku() {
-        return idBuku;
+        return id_Buku;
     }
 
     public void setIdBuku(int idBuku) {
-        this.idBuku = idBuku;
+        this.id_Buku = idBuku;
     }
 
     public String getJudul() {
@@ -47,27 +48,10 @@ public class Buku {
     }
 
     public int getTahunTerbit() {
-        return tahunTerbit;
+        return tahun_terbit;
     }
 
     public void setTahunTerbit(int tahunTerbit) {
-        this.tahunTerbit = tahunTerbit;
-    }
-    public boolean isTersedia() {
-        return tersedia;
-    }
-
-    public void setTersedia(boolean tersedia) {
-        this.tersedia = tersedia;
-    }
-    @Override
-    public String toString() {
-        return "Buku{" +
-                "idBuku=" + idBuku +
-                ", judul='" + judul + '\'' +
-                ", penerbit='" + penerbit + '\'' +
-                ", penulis='" + penulis + '\'' +
-                ", tahunTerbit=" + tahunTerbit +
-                '}';
+        this.tahun_terbit = tahun_terbit;
     }
 }
